@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Subtitle Translator</title>
+</head>
+<body>
+<div id="SubtitleTranslatorPage" data-role="page" class="page type-interior pluginConfigurationPage"
+     data-require="emby-input,emby-button,emby-select">
+    <div data-role="content">
+        <div class="content-primary">
+            <h1>Subtitle Translator</h1>
+            <p>Translate an existing text subtitle and save the result as a new external SRT.</p>
+
+            <form id="SubtitleTranslatorConfigForm">
+                <h2>Translation service</h2>
+                <div class="selectContainer">
+                    <label class="selectLabel" for="Provider">Provider</label>
+                    <select is="emby-select" id="Provider" class="emby-select-withcolor emby-select">
+                        <option value="LibreTranslate">LibreTranslate</option>
+                        <option value="OpenAICompatible">OpenAI-compatible</option>
+                    </select>
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="Endpoint">Endpoint</label>
+                    <input is="emby-input" id="Endpoint" type="url" required>
+                    <div class="fieldDescription">Base URL, or a full OpenAI-compatible /chat/completions URL.</div>
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="ApiKey">API key</label>
+                    <input is="emby-input" id="ApiKey" type="password" autocomplete="new-password">
+                </div>
+                <div class="inputContainer openAiSetting">
+                    <label class="inputLabel inputLabelUnfocused" for="Model">Model</label>
+                    <input is="emby-input" id="Model" type="text">
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="BatchSize">Captions per request</label>
+                    <input is="emby-input" id="BatchSize" type="number" min="1" max="100" required>
+                    <div class="fieldDescription">Lower this if the translation service has a small context or request limit.</div>
+                </div>
+                <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                    <span>Save settings</span>
+                </button>
+            </form>
+
+            <div style="margin-top:3em">
+                <h2>Translate subtitle</h2>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="ItemSearch">Movie or episode</label>
+                    <input is="emby-input" id="ItemSearch" type="search" placeholder="Enter at least two characters">
+                </div>
+                <button is="emby-button" id="SearchButton" type="button" class="raised emby-button">
+                    <span>Search</span>
+                </button>
+                <div id="SearchResults" style="margin-top:1em"></div>
+
+                <form id="TranslateForm" style="display:none;margin-top:2em">
+                    <h3 id="SelectedItemName"></h3>
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="SubtitleStream">Existing subtitle</label>
+                        <select is="emby-select" id="SubtitleStream" class="emby-select-withcolor emby-select" required></select>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="TargetLanguage">Target language</label>
+                        <input is="emby-input" id="TargetLanguage" type="text" maxlength="16" placeholder="de, fr, Spanish…" required>
+                        <div class="fieldDescription">Use a code supported by your translation service. Short ISO codes such as de, fr, es or ja are recommended.</div>
+                    </div>
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                        <span>Translate subtitle</span>
+                    </button>
+                </form>
+                <div id="TranslationStatus" style="margin-top:1em" aria-live="polite"></div>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript">
+        (function () {
+            'use strict';
+            var pluginId = '48ef303e-3bd0-47c1-a627-fc799aa20fb1';
+            var page = document.querySelector('#SubtitleTranslatorPage');
+            var selectedItemId = null;
+
+            function setProviderVisibility() {
+                var visible = document.querySelector('#Provider').value === 'OpenAICompatible';
+                document.querySelectorAll('.openAiSetting').forEach(function (element) {
+                    element.style.display = visible ? '' : 'none';
+                });
+            }
+
+            function request(path, options) {
+                options = options || {};
+                options.url = ApiClient.getUrl(path);
+                options.type = options.type || 'GET';
+                options.dataType = options.dataType || 'json';
+                if (options.data && typeof options.data !== 'string') {
+                    options.data = JSON.stringify(options.data);
+                    options.contentType = 'application/json';
+                }
+                return ApiClient.ajax(options);
+            }
+
+            function showError(error) {
+                var message = error && (error.responseText || error.statusText || error.message);
+                Dashboard.alert(message || 'The request failed. Check the Jellyfin server log for details.');
+            }
+
+            page.addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    document.querySelector('#Provider').value = config.Provider || 'LibreTranslate';
+                    document.querySelector('#Endpoint').value = config.Endpoint || '';
+                    document.querySelector('#ApiKey').value = config.ApiKey || '';
+                    document.querySelector('#Model').value = config.Model || '';
+                    document.querySelector('#BatchSize').value = config.BatchSize || 20;
+                    setProviderVisibility();
+                    Dashboard.hideLoadingMsg();
+                }).catch(function (error) {
+                    Dashboard.hideLoadingMsg();
+                    showError(error);
+                });
+            });
+
+            document.querySelector('#Provider').addEventListener('change', setProviderVisibility);
+
+            document.querySelector('#SubtitleTranslatorConfigForm').addEventListener('submit', function (event) {
+                event.preventDefault();
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    config.Provider = document.querySelector('#Provider').value;
+                    config.Endpoint = document.querySelector('#Endpoint').value.trim();
+                    config.ApiKey = document.querySelector('#ApiKey').value.trim();
+                    config.Model = document.querySelector('#Model').value.trim();
+                    config.BatchSize = parseInt(document.querySelector('#BatchSize').value, 10);
+                    return ApiClient.updatePluginConfiguration(pluginId, config);
+                }).then(Dashboard.processPluginConfigurationUpdateResult).catch(function (error) {
+                    Dashboard.hideLoadingMsg();
+                    showError(error);
+                });
+            });
+
+            function renderResults(items) {
+                var container = document.querySelector('#SearchResults');
+                container.replaceChildren();
+                if (!items.length) {
+                    container.textContent = 'No movies or episodes found.';
+                    return;
+                }
+
+                items.forEach(function (item) {
+                    var button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'listItem listItem-border emby-button';
+                    button.style.cssText = 'display:block;width:100%;padding:1em;text-align:left';
+                    var label = item.Name;
+                    if (item.SeriesName) {
+                        label = item.SeriesName + ' — ' + item.Name;
+                    }
+                    if (item.ProductionYear) {
+                        label += ' (' + item.ProductionYear + ')';
+                    }
+                    button.textContent = label;
+                    button.addEventListener('click', function () { selectItem(item.Id); });
+                    container.appendChild(button);
+                });
+            }
+
+            function search() {
+                var term = document.querySelector('#ItemSearch').value.trim();
+                if (term.length < 2) {
+                    Dashboard.alert('Enter at least two characters.');
+                    return;
+                }
+                Dashboard.showLoadingMsg();
+                ApiClient.getItems(ApiClient.getCurrentUserId(), {
+                    SearchTerm: term,
+                    IncludeItemTypes: 'Movie,Episode',
+                    Recursive: true,
+                    Limit: 30,
+                    Fields: 'SeriesName,ProductionYear',
+                    SortBy: 'SortName'
+                }).then(function (result) {
+                    renderResults(result.Items || []);
+                    Dashboard.hideLoadingMsg();
+                }).catch(function (error) {
+                    Dashboard.hideLoadingMsg();
+                    showError(error);
+                });
+            }
+
+            document.querySelector('#SearchButton').addEventListener('click', search);
+            document.querySelector('#ItemSearch').addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    search();
+                }
+            });
+
+            function selectItem(itemId) {
+                Dashboard.showLoadingMsg();
+                request('SubtitleTranslator/Items/' + itemId).then(function (item) {
+                    selectedItemId = item.ItemId;
+                    document.querySelector('#SelectedItemName').textContent = item.Name;
+                    var select = document.querySelector('#SubtitleStream');
+                    select.replaceChildren();
+                    item.Subtitles.forEach(function (stream) {
+                        var option = document.createElement('option');
+                        option.value = JSON.stringify({ mediaSourceId: stream.MediaSourceId, index: stream.Index });
+                        var kind = stream.IsText ? 'text' : 'image — OCR required';
+                        option.textContent = (stream.Language || 'unknown') + ' · ' + (stream.Title || stream.Codec || 'subtitle') + ' · ' + kind;
+                        option.disabled = !stream.IsText;
+                        select.appendChild(option);
+                    });
+                    var hasTextSubtitles = item.Subtitles.some(function (stream) { return stream.IsText; });
+                    document.querySelector('#TranslateForm').style.display = hasTextSubtitles ? '' : 'none';
+                    document.querySelector('#TranslationStatus').textContent = hasTextSubtitles ? '' : 'This item has no translatable text subtitle streams.';
+                    Dashboard.hideLoadingMsg();
+                }).catch(function (error) {
+                    Dashboard.hideLoadingMsg();
+                    showError(error);
+                });
+            }
+
+            document.querySelector('#TranslateForm').addEventListener('submit', function (event) {
+                event.preventDefault();
+                if (!selectedItemId) { return; }
+                var stream = JSON.parse(document.querySelector('#SubtitleStream').value);
+                var target = document.querySelector('#TargetLanguage').value.trim();
+                Dashboard.showLoadingMsg();
+                document.querySelector('#TranslationStatus').textContent = 'Translation in progress…';
+                request('SubtitleTranslator/Items/' + selectedItemId + '/Translate', {
+                    type: 'POST',
+                    data: {
+                        mediaSourceId: stream.mediaSourceId,
+                        subtitleStreamIndex: stream.index,
+                        targetLanguage: target
+                    }
+                }).then(function (result) {
+                    Dashboard.hideLoadingMsg();
+                    document.querySelector('#TranslationStatus').textContent = 'Created ' + result.TargetLanguage + ' subtitle with ' + result.CueCount + ' captions.';
+                    Dashboard.alert('Subtitle translated successfully.');
+                }).catch(function (error) {
+                    Dashboard.hideLoadingMsg();
+                    document.querySelector('#TranslationStatus').textContent = 'Translation failed.';
+                    showError(error);
+                });
+            });
+        }());
+    </script>
+</div>
+</body>
+</html>

@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Jellyfin.Plugin.SubtitleTranslator/Jellyfin.Plugin.SubtitleTranslator.csproj" />
+  <Project Path="Jellyfin.Plugin.SubtitleTranslator.Tests/Jellyfin.Plugin.SubtitleTranslator.Tests.csproj" />
+</Solution>
