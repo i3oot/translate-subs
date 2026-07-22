@@ -2,7 +2,7 @@
 name: "Subtitle Translator"
 guid: "48ef303e-3bd0-47c1-a627-fc799aa20fb1"
 version: "0.1.0.0"
-targetAbi: "10.11.11.0"
+targetAbi: "10.11.5.0"
 framework: "net9.0"
 owner: "i3oot"
 overview: "Translate existing text subtitles from the admin dashboard."

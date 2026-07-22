@@ -30,7 +30,7 @@ public sealed class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         yield return new PluginPageInfo
         {
             Name = Name,
-            EnableInMainMenu = false,
+            EnableInMainMenu = true,
             EmbeddedResourcePath = string.Format(
                 CultureInfo.InvariantCulture,
                 "{0}.Configuration.configPage.html",

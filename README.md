@@ -23,7 +23,7 @@ dotnet test -c Release
 
 Copy `Jellyfin.Plugin.SubtitleTranslator.dll` from `Jellyfin.Plugin.SubtitleTranslator/bin/Release/net9.0/` to a dedicated directory under Jellyfin's plugin directory, then restart Jellyfin.
 
-The plugin targets Jellyfin Server 10.11.11. Jellyfin plugin package versions must match the installed server line.
+The plugin targets Jellyfin Server 10.11.5. Jellyfin plugin package versions must match the installed server line.
 
 ## Configure and use
 
