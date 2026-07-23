@@ -117,13 +117,16 @@ internal sealed class TranslationClient
             3. The translations array MUST contain exactly {{texts.Length}} elements: one output for every input caption.
             4. Preserve order and index mapping exactly. Output element N must translate input element N.
             5. Never merge, split, omit, reorder, summarize, or add captions, even when adjacent captions form one sentence.
-            6. Preserve line breaks and inline subtitle markup such as <i>, <b>, and speaker prefixes.
-            7. Return an empty string for an empty input caption; never remove its array position.
-            8. Escape all strings as valid JSON.
+            6. Treat the captions as spoken dialogue, not formal written prose. The translation must sound natural when spoken by a native speaker.
+            7. When several translations are correct, choose the most natural conversational wording for the context, speaker intent, emotion, politeness, and register. Avoid stiff or unnecessarily literal phrasing.
+            8. Use surrounding captions to resolve ambiguous or fragmented speech, but keep every caption in its original array position. Do not invent meaning, slang, or details unsupported by the source.
+            9. Preserve line breaks and inline subtitle markup such as <i>, <b>, and speaker prefixes.
+            10. Return an empty string for an empty input caption; never remove its array position.
+            11. Escape all strings as valid JSON.
 
             FORMAT EXAMPLE ONLY:
             Input: {"captionCount":2,"captions":["Hello!","<i>Wait.</i>\nCome back."]}
-            Output: {"translations":["Hallo!","<i>Warte.</i>\nKomm zurueck."]}
+            Output: {"translations":["Hallo!","<i>Warte.</i>\nKomm zurück."]}
 
             Before responding, verify that translations.length equals {{texts.Length}}.
             """;
