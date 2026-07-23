@@ -36,8 +36,8 @@
                 </div>
                 <div class="inputContainer">
                     <label class="inputLabel inputLabelUnfocused" for="BatchSize">Captions per request</label>
-                    <input is="emby-input" id="BatchSize" type="number" min="1" max="100" required>
-                    <div class="fieldDescription">Lower this if the translation service has a small context or request limit.</div>
+                    <input is="emby-input" id="BatchSize" type="number" min="1" max="100000" required>
+                    <div class="fieldDescription">Up to 100,000 captions per request. Lower this if the model, gateway, or provider has a smaller context or request limit.</div>
                 </div>
                 <button is="emby-button" type="submit" class="raised button-submit block emby-button">
                     <span>Save settings</span>

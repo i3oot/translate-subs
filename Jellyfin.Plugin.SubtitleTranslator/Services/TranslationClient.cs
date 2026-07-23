@@ -29,7 +29,7 @@ internal sealed class TranslationClient
             throw new InvalidOperationException("The configured translation endpoint must be an absolute HTTP or HTTPS URL.");
         }
 
-        var batchSize = Math.Clamp(configuration.BatchSize, 1, 100);
+        var batchSize = Math.Clamp(configuration.BatchSize, 1, 100_000);
         var result = new List<string>(texts.Count);
         using var client = _httpClientFactory.CreateClient();
         client.Timeout = TimeSpan.FromMinutes(10);
