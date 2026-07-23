@@ -5,8 +5,10 @@ using MediaBrowser.Common.Api;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.MediaEncoding;
+using MediaBrowser.Controller.Providers;
 using MediaBrowser.Controller.Subtitles;
 using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.IO;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -22,6 +24,8 @@ public sealed class SubtitleTranslatorController : ControllerBase
     private readonly IMediaSourceManager _mediaSourceManager;
     private readonly ISubtitleEncoder _subtitleEncoder;
     private readonly ISubtitleManager _subtitleManager;
+    private readonly IProviderManager _providerManager;
+    private readonly IFileSystem _fileSystem;
     private readonly TranslationClient _translationClient;
 
     public SubtitleTranslatorController(
@@ -29,12 +33,16 @@ public sealed class SubtitleTranslatorController : ControllerBase
         IMediaSourceManager mediaSourceManager,
         ISubtitleEncoder subtitleEncoder,
         ISubtitleManager subtitleManager,
+        IProviderManager providerManager,
+        IFileSystem fileSystem,
         IHttpClientFactory httpClientFactory)
     {
         _libraryManager = libraryManager;
         _mediaSourceManager = mediaSourceManager;
         _subtitleEncoder = subtitleEncoder;
         _subtitleManager = subtitleManager;
+        _providerManager = providerManager;
+        _fileSystem = fileSystem;
         _translationClient = new TranslationClient(httpClientFactory);
     }
 
@@ -129,6 +137,11 @@ public sealed class SubtitleTranslatorController : ControllerBase
             IsHearingImpaired = subtitle.IsHearingImpaired,
             Stream = output
         }).ConfigureAwait(false);
+
+        _providerManager.QueueRefresh(
+            item.Id,
+            new MetadataRefreshOptions(new DirectoryService(_fileSystem)),
+            RefreshPriority.High);
 
         return new TranslationResult(item.Id.ToString("N"), item.Name, request.TargetLanguage.Trim(), document.Count);
     }
