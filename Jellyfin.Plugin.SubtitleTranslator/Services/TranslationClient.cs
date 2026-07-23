@@ -106,9 +106,27 @@ internal sealed class TranslationClient
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", configuration.ApiKey);
         }
 
-        var instruction = "Translate each subtitle caption to " + targetLanguage
-            + ". Source language: " + (string.IsNullOrWhiteSpace(sourceLanguage) ? "auto-detect" : sourceLanguage)
-            + ". Preserve line breaks and inline subtitle markup. Return only a JSON object with a translations array of strings in the same order and length.";
+        var instruction = $$"""
+            You are a subtitle translation engine.
+
+            Translate every caption from {{(string.IsNullOrWhiteSpace(sourceLanguage) ? "an automatically detected source language" : sourceLanguage)}} to {{targetLanguage}}.
+
+            OUTPUT CONTRACT — ALL RULES ARE MANDATORY:
+            1. Return only one valid JSON object. Do not use Markdown or code fences.
+            2. The object must have exactly one property named "translations" whose value is an array of strings.
+            3. The translations array MUST contain exactly {{texts.Length}} elements: one output for every input caption.
+            4. Preserve order and index mapping exactly. Output element N must translate input element N.
+            5. Never merge, split, omit, reorder, summarize, or add captions, even when adjacent captions form one sentence.
+            6. Preserve line breaks and inline subtitle markup such as <i>, <b>, and speaker prefixes.
+            7. Return an empty string for an empty input caption; never remove its array position.
+            8. Escape all strings as valid JSON.
+
+            FORMAT EXAMPLE ONLY:
+            Input: {"captionCount":2,"captions":["Hello!","<i>Wait.</i>\nCome back."]}
+            Output: {"translations":["Hallo!","<i>Warte.</i>\nKomm zurueck."]}
+
+            Before responding, verify that translations.length equals {{texts.Length}}.
+            """;
         request.Content = JsonContent.Create(new
         {
             model = configuration.Model,
@@ -117,7 +135,11 @@ internal sealed class TranslationClient
             messages = new object[]
             {
                 new { role = "system", content = instruction },
-                new { role = "user", content = JsonSerializer.Serialize(texts, JsonOptions) }
+                new
+                {
+                    role = "user",
+                    content = JsonSerializer.Serialize(new { captionCount = texts.Length, captions = texts }, JsonOptions)
+                }
             }
         }, options: JsonOptions);
 
